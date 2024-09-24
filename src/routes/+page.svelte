@@ -1,8 +1,11 @@
 <script lang="ts">
-  import card from "$lib/assets/card.jpg";
+  import sheet from "$lib/assets/sheet.jpg";
   import { onMount } from "svelte";
 
-  type Field = { name: string; score: string };
+  type Field = {
+    name: keyof typeof scoreOptions;
+    score: string;
+  };
 
   type Player = {
     name: string;
@@ -43,41 +46,26 @@
     ],
   };
 
-  function createFields(): Field[] {
-    return Object.keys(scoreOptions).map((key) => ({
-      name: key,
-      score: scoreOptions[key][0].toString(),
-    }));
-  }
-
-  function getPlayer() {
-    return { name: "", fields: createFields() };
-  }
-
   let players: Player[] = [];
 
-  function calculateScore(player: Player) {
-    let upperScore = 0;
-    let lowerScore = 0;
+  function createNewPlayer() {
+    return {
+      name: "",
+      fields: Object.keys(scoreOptions).map((key) => ({
+        name: key,
+        score: scoreOptions[key][0].toString(),
+      })),
+    };
+  }
 
-    for (let i = 0; i < 6; i++) {
-      const score = player.fields[i].score;
-      if (score !== "-" && score !== "X") {
-        upperScore += parseInt(score);
-      }
-    }
+  function calculateScore(player: Player) {
+    const upperScore = calculateSectionScore(player.fields, 0, 6);
+    const lowerScore = calculateSectionScore(player.fields, 6, 13);
 
     const bonus = upperScore >= 63 ? 35 : 0;
     const upperFullScore = upperScore + bonus;
-
-    for (let i = 6; i < player.fields.length; i++) {
-      const score = player.fields[i].score;
-      if (score !== "-" && score !== "X") {
-        lowerScore += parseInt(score);
-      }
-    }
-
     const totalScore = upperFullScore + lowerScore;
+
     return {
       upperScore,
       bonus,
@@ -87,13 +75,23 @@
     };
   }
 
+  function calculateSectionScore(
+    fields: Field[],
+    start: number,
+    end: number
+  ): number {
+    return fields.slice(start, end).reduce((total, field) => {
+      const score = parseInt(field.score);
+      return total + (!isNaN(score) ? score : 0);
+    }, 0);
+  }
+
   function initGame() {
     players = [
       ...Array(6)
         .fill(0)
-        .map(() => getPlayer()),
+        .map(() => createNewPlayer()),
     ];
-    localStorage.setItem("kniffel", "");
     saveGame();
   }
 
@@ -120,23 +118,24 @@
 </script>
 
 {#if players.length > 0}
-  <div class="flex ml-5 w-full blur-[1px] gap-5 text-2xl">
+  <div class="flex ml-5 mb-5 w-full blur-[1px] gap-10 *:whitespace-nowrap">
     <label class="flex gap-3 items-center">
       <input type="checkbox" bind:checked={autoCalculate} class="scale-150" />
-      Auto Calculate
+      Auto Calculate?
     </label>
 
     <button
       on:click={resetGame}
-      class="disabled:text-neutral-500"
-      disabled={players.every((player) => player.name === "")}
-      >Reset Game</button
+      class="disabled:text-neutral-400"
+      disabled={players.every(({ name }) => name === "")}>Reset Game</button
     >
+
+    <a href="https://github.com/fjlein/kniffel">See Source ↗</a>
   </div>
 
   <img
-    alt="The project logo"
-    src={card}
+    alt="the kniffel sheet"
+    src={sheet}
     class="absolute !w-[800px] !min-w-[800px]"
   />
 
@@ -149,22 +148,24 @@
               type="text"
               bind:value={player.name}
               on:change={() => {
+                player.name = player.name.trim();
                 saveGame();
-                player.name.trim();
               }}
-              placeholder={`${i + 1}...`}
+              placeholder="name..."
               autocomplete="off"
-              class="w-[87px] h-[47px] text-center"
+              class="w-[87px] h-[47px] text-center placeholder:text-neutral-400"
             />
           </td>
         {/each}
       </tr>
     </thead>
-    <tbody class="*:*:border-transparent *:*:border-2">
+    <tbody
+      class="*:*:border-transparent *:*:border-2 *:*:w-[87px] *:*:h-[47px]"
+    >
       {#each players[0].fields.slice(0, 6) as field, i}
         <tr>
           {#each players as player}
-            <td class="w-[87px] h-[47px]">
+            <td>
               <select
                 bind:value={player.fields[i].score}
                 on:change={saveGame}
@@ -185,29 +186,33 @@
       <tr>
         {#each players as player}
           <td
-            class="w-[87px] h-[47px] {player.name == ''
-              ? 'text-transparent'
-              : ''}"
-            >{autoCalculate ? calculateScore(player).upperScore : ""}</td
+            class={player.name == "" || !autoCalculate
+              ? "text-transparent"
+              : ""}
+          >
+            {calculateScore(player).upperScore}</td
           >
         {/each}
       </tr>
       <tr>
         {#each players as player}
           <td
-            class="w-[87px] h-[47px] {player.name == ''
-              ? 'text-transparent'
-              : ''}">{autoCalculate ? calculateScore(player).bonus : ""}</td
+            class={player.name == "" || !autoCalculate
+              ? "text-transparent"
+              : ""}
+          >
+            {calculateScore(player).bonus}</td
           >
         {/each}
       </tr>
       <tr>
         {#each players as player}
           <td
-            class="w-[87px] h-[47px] {player.name == ''
-              ? 'text-transparent'
-              : ''}"
-            >{autoCalculate ? calculateScore(player).upperFullScore : ""}</td
+            class={player.name == "" || !autoCalculate
+              ? "text-transparent"
+              : ""}
+          >
+            {calculateScore(player).upperFullScore}</td
           >
         {/each}
       </tr>
@@ -215,7 +220,7 @@
       {#each players[0].fields.slice(6, 13) as field, fieldIndex}
         <tr>
           {#each players as player}
-            <td class="w-[87px] h-[47px]">
+            <td>
               <select
                 bind:value={player.fields[fieldIndex + 6].score}
                 on:change={saveGame}
@@ -236,30 +241,33 @@
       <tr>
         {#each players as player}
           <td
-            class="w-[87px] h-[47px] {player.name == ''
-              ? 'text-transparent'
-              : ''}"
-            >{autoCalculate ? calculateScore(player).lowerScore : ""}</td
+            class={player.name == "" || !autoCalculate
+              ? "text-transparent"
+              : ""}
+          >
+            {calculateScore(player).lowerScore}
+          </td>
+        {/each}
+      </tr>
+      <tr>
+        {#each players as player}
+          <td
+            class={player.name == "" || !autoCalculate
+              ? "text-transparent"
+              : ""}
+          >
+            {calculateScore(player).upperFullScore}</td
           >
         {/each}
       </tr>
       <tr>
         {#each players as player}
           <td
-            class="w-[87px] h-[47px] {player.name == ''
-              ? 'text-transparent'
-              : ''}"
-            >{autoCalculate ? calculateScore(player).upperFullScore : ""}</td
+            class={player.name == "" || !autoCalculate
+              ? "text-transparent"
+              : ""}
           >
-        {/each}
-      </tr>
-      <tr>
-        {#each players as player}
-          <td
-            class="w-[87px] h-[47px] {player.name == ''
-              ? 'text-transparent'
-              : ''}"
-            >{autoCalculate ? calculateScore(player).totalScore : ""}</td
+            {calculateScore(player).totalScore}</td
           >
         {/each}
       </tr>

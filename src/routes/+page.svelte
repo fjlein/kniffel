@@ -87,15 +87,19 @@
     };
   }
 
+  function initGame() {
+    players = [
+      ...Array(6)
+        .fill(0)
+        .map(() => getPlayer()),
+    ];
+    localStorage.setItem("kniffel", "");
+    saveGame();
+  }
+
   function resetGame() {
     if (confirm("Every entry will be lost") == true) {
-      players = [
-        ...Array(6)
-          .fill(0)
-          .map(() => getPlayer()),
-      ];
-      localStorage.setItem("kniffel", "");
-      saveGame();
+      initGame();
     }
   }
 
@@ -104,7 +108,7 @@
     if (savedGame) {
       players = JSON.parse(savedGame);
     } else {
-      resetGame();
+      initGame();
     }
   });
 
